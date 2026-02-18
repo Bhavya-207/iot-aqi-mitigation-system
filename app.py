@@ -5,14 +5,14 @@ import datetime
 import random
 import plotly.express as px
 
-st.set_page_config(page_title="IoT AQI Mitigation System", layout="wide")
+st.set_page_config(page_title="AI AQI Monitoring System", layout="wide")
 
-st.title("🌫 IoT-Based Hyperlocal AQI Monitoring & Mitigation System")
-st.write("Prototype for Delhi Colony Deployment")
+st.title("🌫 AI-Powered Hyperlocal AQI Monitoring & Mitigation")
+st.write("30-Minute Smart Prediction System for Colony-Level Deployment")
 
-# ---------------------------
+# --------------------------------------------------
 # CPCB AQI CALCULATION (PM2.5)
-# ---------------------------
+# --------------------------------------------------
 
 def calculate_aqi_pm25(concentration):
     breakpoints = [
@@ -32,48 +32,50 @@ def calculate_aqi_pm25(concentration):
 
     return 500
 
+
 def get_aqi_category(aqi):
     if aqi <= 50:
-        return "Good", "green"
+        return "Good"
     elif aqi <= 100:
-        return "Satisfactory", "lightgreen"
+        return "Satisfactory"
     elif aqi <= 200:
-        return "Moderate", "yellow"
+        return "Moderate"
     elif aqi <= 300:
-        return "Poor", "orange"
+        return "Poor"
     elif aqi <= 400:
-        return "Very Poor", "red"
+        return "Very Poor"
     else:
-        return "Severe", "darkred"
+        return "Severe"
 
-# ---------------------------
-# SIMULATED SENSOR DATA
-# ---------------------------
+# --------------------------------------------------
+# SIMULATED SENSOR DATA (4 NODES)
+# --------------------------------------------------
 
 def generate_sensor_data():
     pm25 = random.randint(80, 260)
     humidity = random.randint(40, 85)
     return pm25, humidity
 
+
 nodes = {}
 
 for i in range(1, 5):
     pm25, humidity = generate_sensor_data()
     aqi = calculate_aqi_pm25(pm25)
-    category, color = get_aqi_category(aqi)
+    category = get_aqi_category(aqi)
+
     nodes[f"Node {i}"] = {
         "PM2.5": pm25,
         "Humidity": humidity,
         "AQI": aqi,
-        "Category": category,
-        "Color": color
+        "Category": category
     }
 
-# ---------------------------
-# DASHBOARD
-# ---------------------------
+# --------------------------------------------------
+# LIVE SENSOR DASHBOARD
+# --------------------------------------------------
 
-st.header("📡 Real-Time Sensor Dashboard")
+st.header("📡 Real-Time 4-Node Sensor Dashboard")
 
 cols = st.columns(4)
 
@@ -81,91 +83,87 @@ for i, (node, data) in enumerate(nodes.items()):
     with cols[i]:
         st.metric(node, f"AQI: {data['AQI']}")
         st.write(f"PM2.5: {data['PM2.5']} µg/m³")
-        st.write(f"Humidity: {data['Humidity']} %")
+        st.write(f"Humidity: {data['Humidity']}%")
         st.write(f"Category: {data['Category']}")
-
-# ---------------------------
-# 24-HOUR PREDICTION (Mock)
-# ---------------------------
-
-st.header("📈 24-Hour AQI Prediction")
-
-hours = pd.date_range(datetime.datetime.now(), periods=24, freq="H")
-predicted_values = np.clip(
-    np.random.normal(loc=200, scale=40, size=24), 80, 350
-)
-
-df_pred = pd.DataFrame({
-    "Time": hours,
-    "Predicted AQI": predicted_values
-})
-
-fig = px.line(df_pred, x="Time", y="Predicted AQI",
-              title="Next 24 Hours AQI Forecast",
-              markers=True)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# ---------------------------
-# SPRINKLER CONTROL LOGIC
-# ---------------------------
-
-st.header("💧 Smart Sprinkler Control Panel")
 
 avg_aqi = np.mean([data["AQI"] for data in nodes.values()])
 avg_humidity = np.mean([data["Humidity"] for data in nodes.values()])
 
-st.write(f"Average Colony AQI: {round(avg_aqi)}")
-st.write(f"Average Humidity: {round(avg_humidity)}%")
+st.subheader("🏘 Colony Average Conditions")
+st.write(f"**Average AQI:** {round(avg_aqi)}")
+st.write(f"**Average Humidity:** {round(avg_humidity)}%")
 
-threshold = 200
+# --------------------------------------------------
+# 30-MINUTE AQI PREDICTION ONLY
+# --------------------------------------------------
 
-activation_reason = ""
-activate = False
+st.header("📈 30-Minute AQI Forecast")
 
-if avg_aqi > threshold and avg_humidity < 80:
-    activate = True
-    activation_reason = "AQI above threshold and humidity safe."
-elif avg_humidity >= 80:
-    activation_reason = "High humidity — sprinkler disabled."
-else:
-    activation_reason = "AQI below activation threshold."
+future_times = pd.date_range(
+    start=datetime.datetime.now(),
+    periods=6,
+    freq="5min"
+)
 
-st.subheader("🤖 Auto Activation Status")
+trend = np.linspace(avg_aqi, avg_aqi + 15, 6)
+noise = np.random.normal(0, 4, 6)
 
-if activate:
-    st.error("🚨 Sprinkler ACTIVATED")
-else:
-    st.success("✅ Sprinkler NOT Activated")
+predicted_values = np.clip(trend + noise, 50, 500)
 
-st.write("Reason:", activation_reason)
-
-# Manual Override
-st.subheader("🔘 Manual Override")
-
-manual = st.checkbox("Force Activate Sprinkler")
-
-if manual:
-    st.warning("Manual Activation Enabled")
-
-# Water Usage Simulation
-st.subheader("💦 Water Usage")
-
-recommended_duration = 15  # minutes
-water_per_minute = 10  # liters
-total_water = recommended_duration * water_per_minute
-
-st.write(f"Recommended Duration: {recommended_duration} minutes")
-st.write(f"Estimated Water Usage: {total_water} liters")
-
-# Trigger History Log
-st.subheader("📜 Trigger History Log")
-
-log_data = pd.DataFrame({
-    "Timestamp": [datetime.datetime.now()],
-    "AQI Before": [round(avg_aqi)],
-    "Sprinkler Activated": [activate or manual]
+df_future = pd.DataFrame({
+    "Time": future_times,
+    "Predicted AQI": predicted_values
 })
 
-st.dataframe(log_data)
+fig = px.line(
+    df_future,
+    x="Time",
+    y="Predicted AQI",
+    markers=True,
+    title="Next 30 Minutes AQI Prediction"
+)
 
+st.plotly_chart(fig, use_container_width=True)
+
+# --------------------------------------------------
+# AI DECISION ENGINE
+# --------------------------------------------------
+
+st.header("🧠 AI Mitigation Decision Engine")
+
+max_predicted = max(predicted_values)
+
+if max_predicted > 250:
+    decision = "Activate Immediately"
+    st.error("🚨 AQI expected to worsen significantly.")
+elif max_predicted > 200:
+    decision = "Prepare for Activation"
+    st.warning("⚠ AQI likely to enter Poor category.")
+else:
+    decision = "No Action Required"
+    st.success("🌿 AQI expected to remain stable.")
+
+st.write(f"### 🔎 System Recommendation: {decision}")
+
+# --------------------------------------------------
+# SMART SPRINKLER CONTROL PANEL
+# --------------------------------------------------
+
+st.header("💧 Smart Sprinkler Control Panel")
+
+aqi_threshold = st.slider("AQI Activation Threshold", 150, 400, 200)
+humidity_limit = st.slider("Maximum Humidity for Activation (%)", 50, 100, 80)
+
+sprinkler_status = "OFF"
+
+if avg_aqi > aqi_threshold and avg_humidity < humidity_limit:
+    sprinkler_status = "ON"
+    st.error("🚨 Auto-Activation Triggered!")
+else:
+    st.success("Conditions Safe. Sprinkler OFF.")
+
+st.write(f"### Sprinkler Status: {sprinkler_status}")
+
+# Manual Override
+if st.button("🔘 Manual Activate Sprinkler"):
+    st.warning("Manual Override Activated! Sprinkler ON.")
