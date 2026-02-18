@@ -168,3 +168,4 @@ log_data = pd.DataFrame({
 })
 
 st.dataframe(log_data)
+
