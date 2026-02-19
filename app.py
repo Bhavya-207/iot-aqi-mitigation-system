@@ -1,35 +1,53 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
 from datetime import datetime
 import time
 
-# -------------------------
+# -----------------------------------
 # PAGE CONFIG
-# -------------------------
-st.set_page_config(page_title="AQI Monitor", layout="wide")
+# -----------------------------------
+st.set_page_config(page_title="IoT AQI Monitoring System", layout="wide")
 
-# -------------------------
-# AUTO REFRESH (30 sec)
-# -------------------------
+# -----------------------------------
+# AUTO REFRESH (30 seconds default)
+# -----------------------------------
 if "last_refresh" not in st.session_state:
     st.session_state.last_refresh = time.time()
 
-refresh_interval = 30  # seconds
+refresh_interval = 30  # 30 seconds
 
 if time.time() - st.session_state.last_refresh > refresh_interval:
     st.session_state.last_refresh = time.time()
     st.rerun()
 
-# -------------------------
-# SIMULATED DATA (Replace with real sensor later)
-# -------------------------
-predicted_aqi = np.random.randint(50, 300)
-predicted_humidity = np.random.randint(30, 90)
+# Optional 1-second live mode
+live_mode = st.sidebar.checkbox("Enable 1-Second Live Mode")
 
-# -------------------------
-# AQI COLOR INDICATOR
-# -------------------------
+if live_mode:
+    time.sleep(1)
+    st.rerun()
+
+# -----------------------------------
+# TIMESTAMP
+# -----------------------------------
+current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+st.markdown(f"### 🕒 Last Updated: {current_time}")
+
+# -----------------------------------
+# SIMULATED 4 NODE DATA
+# (Replace with real sensor data later)
+# -----------------------------------
+nodes = {
+    "Node 1": {"PM2.5": np.random.randint(40, 200), "Humidity": np.random.randint(30, 80)},
+    "Node 2": {"PM2.5": np.random.randint(40, 200), "Humidity": np.random.randint(30, 80)},
+    "Node 3": {"PM2.5": np.random.randint(40, 200), "Humidity": np.random.randint(30, 80)},
+    "Node 4": {"PM2.5": np.random.randint(40, 200), "Humidity": np.random.randint(30, 80)},
+}
+
+# -----------------------------------
+# AQI COLOR FUNCTION
+# -----------------------------------
 def get_aqi_color(aqi):
     if aqi <= 50:
         return "green", "Good"
@@ -44,44 +62,45 @@ def get_aqi_color(aqi):
     else:
         return "maroon", "Hazardous"
 
-color, category = get_aqi_color(predicted_aqi)
+# -----------------------------------
+# DISPLAY 4 NODES
+# -----------------------------------
+cols = st.columns(4)
 
-# -------------------------
-# DISPLAY TIMESTAMP
-# -------------------------
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-st.markdown(f"### 🕒 Last Updated: {current_time}")
+for i, (node, values) in enumerate(nodes.items()):
+    pm25 = values["PM2.5"]
+    humidity = values["Humidity"]
 
-# -------------------------
-# AQI DISPLAY WITH COLOR
-# -------------------------
-st.markdown(
-    f"""
-    <div style="
-        background-color:{color};
-        padding:20px;
-        border-radius:10px;
-        text-align:center;
-        color:white;
-        font-size:28px;
-        font-weight:bold;">
-        AQI: {predicted_aqi} <br>
-        Status: {category}
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+    color, category = get_aqi_color(pm25)
 
-# -------------------------
-# HUMIDITY DISPLAY
-# -------------------------
-st.metric("Humidity (%)", predicted_humidity)
+    with cols[i]:
+        st.markdown(
+            f"""
+            <div style="
+                background-color:{color};
+                padding:20px;
+                border-radius:15px;
+                text-align:center;
+                color:white;
+                font-size:18px;
+                font-weight:bold;">
+                {node} <br><br>
+                PM2.5 (AQI): {pm25} <br>
+                Status: {category} <br><br>
+                Humidity: {humidity}%
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-# -------------------------
-# OPTIONAL: 1 SECOND LIVE MODE
-# -------------------------
-live_mode = st.checkbox("Enable 1-Second Live Mode")
-
-if live_mode:
-    time.sleep(1)
-    st.rerun()
+# -----------------------------------
+# SYSTEM DESCRIPTION
+# -----------------------------------
+st.markdown("### 📘 System Description")
+st.write("""
+• Four IoT sensor nodes monitor PM2.5 and Humidity.  
+• AQI is color-coded based on standard air quality ranges.  
+• Dashboard refreshes automatically every 30 seconds.  
+• Optional 1-second live monitoring mode available.  
+• Timestamp shows real-time system update.
+""")
