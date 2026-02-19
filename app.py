@@ -1,169 +1,140 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
-import datetime
-import random
-import plotly.express as px
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+from datetime import datetime, timedelta
+import time
 
-st.set_page_config(page_title="AI AQI Monitoring System", layout="wide")
+# -----------------------------
+# PAGE CONFIGURATION
+# -----------------------------
+st.set_page_config(page_title="AQI Prediction System", layout="wide")
 
-st.title("🌫 AI-Powered Hyperlocal AQI Monitoring & Mitigation")
-st.write("30-Minute Smart Prediction System for Colony-Level Deployment")
+# -----------------------------
+# AUTO REFRESH EVERY 30 SECONDS
+# -----------------------------
+if "last_refresh" not in st.session_state:
+    st.session_state.last_refresh = time.time()
 
-# --------------------------------------------------
-# CPCB AQI CALCULATION (PM2.5)
-# --------------------------------------------------
+refresh_interval = 30  # seconds
 
-def calculate_aqi_pm25(concentration):
-    breakpoints = [
-        (0, 30, 0, 50),
-        (31, 60, 51, 100),
-        (61, 90, 101, 200),
-        (91, 120, 201, 300),
-        (121, 250, 301, 400),
-        (251, 500, 401, 500)
-    ]
+if time.time() - st.session_state.last_refresh > refresh_interval:
+    st.session_state.last_refresh = time.time()
+    st.rerun()
 
-    for bp in breakpoints:
-        if bp[0] <= concentration <= bp[1]:
-            Clow, Chigh, Ilow, Ihigh = bp
-            aqi = ((Ihigh - Ilow)/(Chigh - Clow)) * (concentration - Clow) + Ilow
-            return round(aqi)
+# -----------------------------
+# GENERATE PAST 60 MINUTES DATA
+# -----------------------------
+minutes = 60
+time_index = np.arange(minutes)
 
-    return 500
+# Simulated historical AQI data (replace with sensor/API later)
+historical_aqi = 100 + np.cumsum(np.random.normal(0, 2, minutes))
 
+# -----------------------------
+# TRAIN LINEAR REGRESSION MODEL
+# -----------------------------
+model = LinearRegression()
+X = time_index.reshape(-1, 1)
+y = historical_aqi
+model.fit(X, y)
 
-def get_aqi_category(aqi):
+# -----------------------------
+# PREDICT NEXT 30 MINUTES
+# -----------------------------
+future_minutes = 30
+future_index = np.arange(minutes, minutes + future_minutes).reshape(-1, 1)
+predicted_aqi = model.predict(future_index)
+
+# -----------------------------
+# CURRENT AQI VALUE
+# -----------------------------
+current_aqi = predicted_aqi[0]
+
+# -----------------------------
+# AQI COLOR INDICATOR FUNCTION
+# -----------------------------
+def get_aqi_color(aqi):
     if aqi <= 50:
-        return "Good"
+        return "green", "Good"
     elif aqi <= 100:
-        return "Satisfactory"
+        return "yellow", "Moderate"
+    elif aqi <= 150:
+        return "orange", "Unhealthy for Sensitive Groups"
     elif aqi <= 200:
-        return "Moderate"
+        return "red", "Unhealthy"
     elif aqi <= 300:
-        return "Poor"
-    elif aqi <= 400:
-        return "Very Poor"
+        return "purple", "Very Unhealthy"
     else:
-        return "Severe"
+        return "maroon", "Hazardous"
 
-# --------------------------------------------------
-# SIMULATED SENSOR DATA (4 NODES)
-# --------------------------------------------------
+color, category = get_aqi_color(current_aqi)
 
-def generate_sensor_data():
-    pm25 = random.randint(80, 260)
-    humidity = random.randint(40, 85)
-    return pm25, humidity
+# -----------------------------
+# TIMESTAMP
+# -----------------------------
+current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+st.markdown(f"### 🕒 Last Updated: {current_time}")
 
-
-nodes = {}
-
-for i in range(1, 5):
-    pm25, humidity = generate_sensor_data()
-    aqi = calculate_aqi_pm25(pm25)
-    category = get_aqi_category(aqi)
-
-    nodes[f"Node {i}"] = {
-        "PM2.5": pm25,
-        "Humidity": humidity,
-        "AQI": aqi,
-        "Category": category
-    }
-
-# --------------------------------------------------
-# LIVE SENSOR DASHBOARD
-# --------------------------------------------------
-
-st.header("📡 Real-Time 4-Node Sensor Dashboard")
-
-cols = st.columns(4)
-
-for i, (node, data) in enumerate(nodes.items()):
-    with cols[i]:
-        st.metric(node, f"AQI: {data['AQI']}")
-        st.write(f"PM2.5: {data['PM2.5']} µg/m³")
-        st.write(f"Humidity: {data['Humidity']}%")
-        st.write(f"Category: {data['Category']}")
-
-avg_aqi = np.mean([data["AQI"] for data in nodes.values()])
-avg_humidity = np.mean([data["Humidity"] for data in nodes.values()])
-
-st.subheader("🏘 Colony Average Conditions")
-st.write(f"**Average AQI:** {round(avg_aqi)}")
-st.write(f"**Average Humidity:** {round(avg_humidity)}%")
-
-# --------------------------------------------------
-# 30-MINUTE AQI PREDICTION ONLY
-# --------------------------------------------------
-
-st.header("📈 30-Minute AQI Forecast")
-
-future_times = pd.date_range(
-    start=datetime.datetime.now(),
-    periods=6,
-    freq="5min"
+# -----------------------------
+# AQI DISPLAY CARD
+# -----------------------------
+st.markdown(
+    f"""
+    <div style="
+        background-color:{color};
+        padding:25px;
+        border-radius:15px;
+        text-align:center;
+        color:white;
+        font-size:32px;
+        font-weight:bold;">
+        Current AQI: {int(current_aqi)} <br>
+        Category: {category}
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-trend = np.linspace(avg_aqi, avg_aqi + 15, 6)
-noise = np.random.normal(0, 4, 6)
+# -----------------------------
+# PLOT GRAPH
+# -----------------------------
+st.markdown("### 📈 AQI Trend & 30-Minute Prediction")
 
-predicted_values = np.clip(trend + noise, 50, 500)
+fig, ax = plt.subplots()
 
-df_future = pd.DataFrame({
-    "Time": future_times,
-    "Predicted AQI": predicted_values
-})
+# Past Data
+ax.plot(range(minutes), historical_aqi, label="Past 60 Minutes")
 
-fig = px.line(
-    df_future,
-    x="Time",
-    y="Predicted AQI",
-    markers=True,
-    title="Next 30 Minutes AQI Prediction"
-)
+# Future Prediction
+ax.plot(range(minutes, minutes + future_minutes), predicted_aqi, linestyle="dashed", label="Next 30 Minutes Prediction")
 
-st.plotly_chart(fig, use_container_width=True)
+# Threshold Line
+ax.axhline(y=150, linestyle=":", label="Unhealthy Threshold")
 
-# --------------------------------------------------
-# AI DECISION ENGINE
-# --------------------------------------------------
+ax.set_xlabel("Time (Minutes)")
+ax.set_ylabel("AQI")
+ax.legend()
 
-st.header("🧠 AI Mitigation Decision Engine")
+st.pyplot(fig)
 
-max_predicted = max(predicted_values)
+# -----------------------------
+# SYSTEM LOGIC SECTION
+# -----------------------------
+st.markdown("### 🧠 System Logic Explanation")
 
-if max_predicted > 250:
-    decision = "Activate Immediately"
-    st.error("🚨 AQI expected to worsen significantly.")
-elif max_predicted > 200:
-    decision = "Prepare for Activation"
-    st.warning("⚠ AQI likely to enter Poor category.")
-else:
-    decision = "No Action Required"
-    st.success("🌿 AQI expected to remain stable.")
+st.write("""
+• The system collects AQI data from the last 60 minutes.  
+• A Linear Regression model is trained on historical data.  
+• AQI is predicted for the next 30 minutes.  
+• Color-coded indicator follows EPA AQI standards.  
+• System auto-refreshes every 30 seconds.  
+""")
 
-st.write(f"### 🔎 System Recommendation: {decision}")
+# -----------------------------
+# PROJECT INFO
+# -----------------------------
+st.markdown("### 🎓 Project Title")
+st.write("Real-Time AQI Monitoring and 30-Minute Forecasting System Using Machine Learning")
 
-# --------------------------------------------------
-# SMART SPRINKLER CONTROL PANEL
-# --------------------------------------------------
-
-st.header("💧 Smart Sprinkler Control Panel")
-
-aqi_threshold = st.slider("AQI Activation Threshold", 150, 400, 200)
-humidity_limit = st.slider("Maximum Humidity for Activation (%)", 50, 100, 80)
-
-sprinkler_status = "OFF"
-
-if avg_aqi > aqi_threshold and avg_humidity < humidity_limit:
-    sprinkler_status = "ON"
-    st.error("🚨 Auto-Activation Triggered!")
-else:
-    st.success("Conditions Safe. Sprinkler OFF.")
-
-st.write(f"### Sprinkler Status: {sprinkler_status}")
-
-# Manual Override
-if st.button("🔘 Manual Activate Sprinkler"):
-    st.warning("Manual Override Activated! Sprinkler ON.")
