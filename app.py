@@ -117,19 +117,24 @@ st.write(f"Average AQI: {round(avg_aqi)}")
 st.write(f"Average Humidity: {round(avg_humidity)}%")
 
 # --------------------------------------------------
-# 30-MINUTE AQI PREDICTION
+# ROLLING 30-MINUTE AQI PREDICTION (Updates every 5 min)
 # --------------------------------------------------
 
-st.header("📈 30-Minute AQI Forecast")
+st.header("📈 Rolling 30-Minute AQI Forecast")
+
+# Align to nearest 5-minute interval
+now = datetime.datetime.now()
+minute = (now.minute // 5) * 5
+aligned_time = now.replace(minute=minute, second=0, microsecond=0)
 
 future_times = pd.date_range(
-    start=datetime.datetime.now(),
-    periods=6,
+    start=aligned_time,
+    periods=7,   # 0 to 30 minutes
     freq="5min"
 )
 
-trend = np.linspace(avg_aqi, avg_aqi + 15, 6)
-noise = np.random.normal(0, 4, 6)
+trend = np.linspace(avg_aqi, avg_aqi + 15, 7)
+noise = np.random.normal(0, 4, 7)
 
 predicted_values = np.clip(trend + noise, 50, 500)
 
@@ -149,7 +154,7 @@ fig = px.line(
 st.plotly_chart(fig, use_container_width=True)
 
 # --------------------------------------------------
-# AI DECISION ENGINE (Without Sprinkler Panel)
+# AI DECISION ENGINE
 # --------------------------------------------------
 
 st.header("🧠 AI Mitigation Decision Engine")
